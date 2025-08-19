@@ -51,7 +51,6 @@ export function activate(context: vscode.ExtensionContext) {
 			return;
 		}
 
-		// 后台检查时，我们不使用颜色，只进行语法检查 (-fsyntax-only)
 		const backgroundCompileOptions = COMPILER_OPTIONS.filter(opt => opt !== '-fdiagnostics-color=always');
 		const compileCommand = `"${gccExecutablePath}" "${document.uri.fsPath}" -fsyntax-only ${backgroundCompileOptions.join(' ')}`;
 
@@ -74,7 +73,6 @@ export function activate(context: vscode.ExtensionContext) {
 		});
 	}
 
-	// 监听文件保存事件，触发后台的静默编译
 	const onSaveListener = vscode.workspace.onDidSaveTextDocument(document => {
 		compileAndDiagnoseOnSave(document);
 	});
@@ -83,7 +81,6 @@ export function activate(context: vscode.ExtensionContext) {
 	const codelensProvider = new CodelensProvider();
 	vscode.languages.registerCodeLensProvider({ language: 'c' }, codelensProvider);
 
-	// "点击运行"按钮的命令
 	const disposableRun = vscode.commands.registerCommand('c-runner.run', async (fileUri: vscode.Uri) => {
 		const editor = vscode.window.activeTextEditor;
 		if (!editor || editor.document.uri.fsPath !== fileUri.fsPath) {
@@ -98,15 +95,10 @@ export function activate(context: vscode.ExtensionContext) {
 		const filePath = fileUri.fsPath;
 		const parsedPath = path.parse(filePath);
 		const executablePath = path.join(parsedPath.dir, `${parsedPath.name}.exe`);
-
-		// 构建完整的“编译成功后运行”的命令
 		const compileCommand = `"${gccExecutablePath}" "${filePath}" -o "${executablePath}" ${COMPILER_OPTIONS.join(' ')}`;
 		const runCommand = `cd /d "${parsedPath.dir}" && "${executablePath}"`;
-
-		// 使用 && 来链接命令：只有在编译成功（返回码为0）时，才会执行运行命令
 		const commandForCmd = `${compileCommand} && ${runCommand}`;
 		const finalCommand = `cmd /c "${commandForCmd}"`
-		// 直接在终端中执行完整的命令
 		terminal.sendText(finalCommand);
 	});
 
