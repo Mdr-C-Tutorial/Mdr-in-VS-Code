@@ -86,7 +86,21 @@ export function activate(context: vscode.ExtensionContext) {
 		if (!editor || editor.document.uri.fsPath !== fileUri.fsPath) {
 			return;
 		}
-
+		if (!fs.existsSync(gccExecutablePath)) {
+			const selection = await vscode.window.showErrorMessage(
+				'未找到C编译器。请选择操作：',
+				{ modal: true },
+				'立即下载',
+				'查看手动放置指南'
+			);
+			if (selection === '立即下载') {
+				vscode.commands.executeCommand('c-runner.downloadCompiler');
+			}
+			if (selection === '查看手动放置指南') {
+				vscode.commands.executeCommand('c-runner.showPath');
+			}
+			return; // 终止本次运行
+		}
 		await editor.document.save();
 
 		const terminal = vscode.window.createTerminal(`Mdr Runner`);
