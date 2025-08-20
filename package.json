@@ -3,7 +3,7 @@
   "displayName": "Mdr in VS Code",
   "publisher": "mdr",
   "description": "C language single-file runner",
-  "version": "0.0.14",
+  "version": "0.0.15",
   "license": "MIT",
   "repository": {
     "type": "git",
