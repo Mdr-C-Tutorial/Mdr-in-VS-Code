@@ -12,7 +12,7 @@ export function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(diagnosticCollection);
 	const gccErrorRegex = /^(.+?):(\d+):(\d+):\s+(?:warning|error):\s+(.+)$/gm;
 
-	const COMPILER_OPTIONS = [
+	const C_COMPILER_OPTIONS = [
 		"-fdiagnostics-color=always",
 		"-g3",
 		"-D_DEBUG",
@@ -39,20 +39,48 @@ export function activate(context: vscode.ExtensionContext) {
 		"-std=c23"
 	];
 
+	const CPP_COMPILER_OPTIONS = [
+		"-fdiagnostics-color=always", "-g3", "-D_DEBUG", "-Wall", "-Wextra",
+		"-Werror", "-pedantic", "-pipe", "-Wshadow", "-Wconversion", "-Wfloat-equal",
+		"-Wpointer-arith", "-Wpointer-compare", "-Wcast-align", "-Wcast-qual",
+		"-Wwrite-strings", "-Wimplicit-fallthrough", "-Wsequence-point",
+		"-Wswitch-default", "-Wswitch-enum", "-Wtautological-compare",
+		"-Wdangling-else", "-Wmisleading-indentation",
+		"-Wnon-virtual-dtor", "-Woverloaded-virtual",
+		"-std=c++23"
+	]
+
 	const COMPILER_DOWNLOAD_URL = 'https://github.com/brechtsanders/winlibs_mingw/releases/download/15.2.0posix-13.0.0-msvcrt-r1/winlibs-x86_64-posix-seh-gcc-15.2.0-mingw-w64msvcrt-13.0.0-r1.zip';
 
 	const storagePath = context.globalStorageUri.fsPath;
 	const compilerInstallDir = path.join(storagePath, 'mingw64');
 	const gccExecutablePath = path.join(compilerInstallDir, 'bin', 'gcc.exe');
+	const gppExecutablePath = path.join(compilerInstallDir, 'bin', 'g++.exe');
 
+	function getLanguageConfig(document: vscode.TextDocument) {
+		if (document.languageId === 'cpp') {
+			return {
+				compilerPath: gppExecutablePath,
+				options: CPP_COMPILER_OPTIONS,
+				compilerName: "g++"
+			};
+		}
+		// 默认为 C
+		return {
+			compilerPath: gccExecutablePath,
+			options: C_COMPILER_OPTIONS,
+			compilerName: "gcc"
+		};
+	}
 
 	function compileAndDiagnoseOnSave(document: vscode.TextDocument) {
-		if (document.languageId !== 'c' || !fs.existsSync(gccExecutablePath)) {
+		const config = getLanguageConfig(document);
+		if (!fs.existsSync(config.compilerPath)) {
 			return;
 		}
 
-		const backgroundCompileOptions = COMPILER_OPTIONS.filter(opt => opt !== '-fdiagnostics-color=always');
-		const compileCommand = `"${gccExecutablePath}" "${document.uri.fsPath}" -fsyntax-only ${backgroundCompileOptions.join(' ')}`;
+		const backgroundCompileOptions = config.options.filter(opt => opt !== '-fdiagnostics-color=always');
+		const compileCommand = `"${config.compilerPath}" "${document.uri.fsPath}" -fsyntax-only ${backgroundCompileOptions.join(' ')}`;
 
 		exec(compileCommand, (error, stdout, stderr) => {
 			diagnosticCollection.set(document.uri, []); // 先清空旧的诊断信息
@@ -74,21 +102,24 @@ export function activate(context: vscode.ExtensionContext) {
 	}
 
 	const onSaveListener = vscode.workspace.onDidSaveTextDocument(document => {
-		compileAndDiagnoseOnSave(document);
+		if (document.languageId === 'c' || document.languageId === 'cpp') {
+			compileAndDiagnoseOnSave(document);
+		}
 	});
 	context.subscriptions.push(onSaveListener);
 
 	const codelensProvider = new CodelensProvider();
-	vscode.languages.registerCodeLensProvider({ language: 'c' }, codelensProvider);
+	vscode.languages.registerCodeLensProvider(['c', 'cpp'], codelensProvider);
 
 	const disposableRun = vscode.commands.registerCommand('c-runner.run', async (fileUri: vscode.Uri) => {
 		const editor = vscode.window.activeTextEditor;
 		if (!editor || editor.document.uri.fsPath !== fileUri.fsPath) {
 			return;
 		}
-		if (!fs.existsSync(gccExecutablePath)) {
+		const config = getLanguageConfig(editor.document);
+		if (!fs.existsSync(config.compilerPath)) {
 			const selection = await vscode.window.showErrorMessage(
-				'未找到C编译器。请选择操作：',
+				'未找到编译器。请选择操作：',
 				{ modal: true },
 				'立即下载',
 				'查看手动放置指南'
@@ -109,9 +140,12 @@ export function activate(context: vscode.ExtensionContext) {
 		const filePath = fileUri.fsPath;
 		const parsedPath = path.parse(filePath);
 		const executablePath = path.join(parsedPath.dir, `${parsedPath.name}.exe`);
-		const compileCommand = `"${gccExecutablePath}" "${filePath}" -o "${executablePath}" ${COMPILER_OPTIONS.join(' ')}`;
+		const compileCommand = `"${config.compilerPath}" "${filePath}" -o "${executablePath}" ${config.options.join(' ')}`;
+		const compilerBinDir = path.dirname(config.compilerPath);
 		const runCommand = `cd /d "${parsedPath.dir}" && "${executablePath}"`;
 		const commandForCmd = `${compileCommand} && ${runCommand}`;
+		const pathCommand = `$env:PATH = "${compilerBinDir};$env:PATH"`
+		terminal.sendText(pathCommand);
 		const finalCommand = `cmd /c "${commandForCmd}"`
 		terminal.sendText(finalCommand);
 	});
