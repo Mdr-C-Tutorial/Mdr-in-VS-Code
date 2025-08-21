@@ -143,7 +143,7 @@ export function activate(context: vscode.ExtensionContext) {
 		const terminal = vscode.window.createTerminal(`Mdr Runner`);
 		terminal.show();
 
-		terminal.sendText("chcp 65001");
+		terminal.sendText("[System.Console]::InputEncoding = [System.Console]::OutputEncoding=[System.Text.Encoding]::GetEncoding(65001)");
 
 		const filePath = fileUri.fsPath;
 		const parsedPath = path.parse(filePath);
