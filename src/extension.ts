@@ -36,7 +36,10 @@ export function activate(context: vscode.ExtensionContext) {
 		"-Wtautological-compare",
 		"-Wdangling-else",
 		"-Wmisleading-indentation",
-		"-std=c23"
+		"-std=c23",
+		"-lm", "-lpthread",
+		"-finput-charset=UTF-8",
+		"-fexec-charset=UTF-8"
 	];
 
 	const CPP_COMPILER_OPTIONS = [
@@ -47,10 +50,13 @@ export function activate(context: vscode.ExtensionContext) {
 		"-Wswitch-default", "-Wswitch-enum", "-Wtautological-compare",
 		"-Wdangling-else", "-Wmisleading-indentation",
 		"-Wnon-virtual-dtor", "-Woverloaded-virtual",
-		"-std=c++23"
+		"-std=c++23",
+		"-lm", "-lpthread",
+		"-finput-charset=UTF-8",
+		"-fexec-charset=UTF-8"
 	]
 
-	const COMPILER_DOWNLOAD_URL = 'https://github.com/brechtsanders/winlibs_mingw/releases/download/15.2.0posix-13.0.0-msvcrt-r1/winlibs-x86_64-posix-seh-gcc-15.2.0-mingw-w64msvcrt-13.0.0-r1.zip';
+	const COMPILER_DOWNLOAD_URL = 'https://github.com/brechtsanders/winlibs_mingw/releases/download/15.2.0posix-13.0.0-ucrt-r1/winlibs-x86_64-posix-seh-gcc-15.2.0-mingw-w64ucrt-13.0.0-r1.zip';
 
 	const storagePath = context.globalStorageUri.fsPath;
 	const compilerInstallDir = path.join(storagePath, 'mingw64');
@@ -137,6 +143,8 @@ export function activate(context: vscode.ExtensionContext) {
 		const terminal = vscode.window.createTerminal(`Mdr Runner`);
 		terminal.show();
 
+		terminal.sendText("chcp 65001");
+
 		const filePath = fileUri.fsPath;
 		const parsedPath = path.parse(filePath);
 		const executablePath = path.join(parsedPath.dir, `${parsedPath.name}.exe`);
@@ -144,8 +152,10 @@ export function activate(context: vscode.ExtensionContext) {
 		const compilerBinDir = path.dirname(config.compilerPath);
 		const runCommand = `cd /d "${parsedPath.dir}" && "${executablePath}"`;
 		const commandForCmd = `${compileCommand} && ${runCommand}`;
-		const pathCommand = `$env:PATH = "${compilerBinDir};$env:PATH"`
-		terminal.sendText(pathCommand);
+		if (editor.document.languageId === "cpp") {
+			const pathCommand = `$env:PATH = "${compilerBinDir};$env:PATH"`
+			terminal.sendText(pathCommand);
+		}
 		const finalCommand = `cmd /c "${commandForCmd}"`
 		terminal.sendText(finalCommand);
 	});
