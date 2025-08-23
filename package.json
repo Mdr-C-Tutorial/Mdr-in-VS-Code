@@ -3,12 +3,13 @@
   "displayName": "Mdr in VS Code",
   "publisher": "mdr",
   "description": "C language single-file runner",
-  "version": "0.0.31",
+  "version": "0.1.2",
   "license": "MIT",
   "repository": {
     "type": "git",
     "url": "https://github.com/Mdr-C-Tutorial/Mdr-in-VS-Code"
   },
+  "icon": "images/icon.png",
   "engines": {
     "vscode": "^1.103.0"
   },

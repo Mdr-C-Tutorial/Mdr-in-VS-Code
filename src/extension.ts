@@ -89,7 +89,6 @@ export function activate(context: vscode.ExtensionContext) {
 		const compileCommand = `"${config.compilerPath}" "${document.uri.fsPath}" -fsyntax-only ${backgroundCompileOptions.join(' ')}`;
 
 		exec(compileCommand, (error, stdout, stderr) => {
-			diagnosticCollection.set(document.uri, []); // 先清空旧的诊断信息
 			if (error || stderr) {
 				const diagnostics: vscode.Diagnostic[] = [];
 				let match;
@@ -97,7 +96,7 @@ export function activate(context: vscode.ExtensionContext) {
 					const [, , lineStr, columnStr, message] = match;
 					const line = parseInt(lineStr, 10) - 1;
 					const column = parseInt(columnStr, 10) - 1;
-					const range = new vscode.Range(line, column, line, 1000); // 标记到行尾
+					const range = new vscode.Range(line, column, line, 1000);
 					const severity = /error:/.test(match[0]) ? vscode.DiagnosticSeverity.Error : vscode.DiagnosticSeverity.Warning;
 					const diagnostic = new vscode.Diagnostic(range, message, severity);
 					diagnostics.push(diagnostic);
@@ -136,7 +135,7 @@ export function activate(context: vscode.ExtensionContext) {
 			if (selection === '查看手动放置指南') {
 				vscode.commands.executeCommand('c-runner.showPath');
 			}
-			return; // 终止本次运行
+			return;
 		}
 		await editor.document.save();
 

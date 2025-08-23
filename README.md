@@ -22,13 +22,45 @@
   * 我们为您内置了一套极为严格的GCC编译选项（包含 `-Wall`, `-Wextra`, `-Werror`, `-pedantic`, `-Wshadow`, `-Wmisleading-indentation` 等20多项）。
   * 这会强制您编写更规范、更健壮、更具可移植性的高质量 C 代码，帮助您从一开始就养成良好的编程习惯。
 
+```ts
+ const C_COMPILER_OPTIONS = [
+  "-fdiagnostics-color=always",
+  "-g3",
+  "-D_DEBUG",
+  "-Wall",
+  "-Wextra",
+  "-Werror",
+  "-pedantic",
+  "-pipe",
+  "-Wshadow",
+  "-Wconversion",
+  "-Wfloat-equal",
+  "-Wpointer-arith",
+  "-Wpointer-compare",
+  "-Wcast-align",
+  "-Wcast-qual",
+  "-Wwrite-strings",
+  "-Wimplicit-fallthrough",
+  "-Wsequence-point",
+  "-Wswitch-default",
+  "-Wswitch-enum",
+  "-Wtautological-compare",
+  "-Wdangling-else",
+  "-Wmisleading-indentation",
+  "-std=c23",
+  "-lm", "-lpthread",
+  "-finput-charset=UTF-8",
+  "-fexec-charset=UTF-8"
+ ];
+```
+
 ## 🚀 快速上手
 
 1. **安装扩展**
     * 在VS Code的扩展商店中搜索 `Mdr in VS Code` 并点击安装。
 
 2. **下载并配置编译器 (仅需一次)**
-    * 首次点击 **[▶ Mdr!]** 按钮时，右下角会弹出下载编译器的弹窗。
+    * 首次点击 **[▶ Mdr!]** 按钮时，会弹出下载编译器的弹窗。
     * 在右下角等待编译器自动下载并解压完成。
 
 3. **编写并运行您的第一个程序**
@@ -56,7 +88,7 @@
 
 ### 保存时自动诊断
 
-本扩展会监听文件的保存事件。一旦源文件被保存，它会立即在后台检查您的代码。任何问题都会实时更新到VS Code的UI上。
+本扩展会监听文件的保存事件。一旦源文件被保存，它会立即在后台检查您的代码。任何问题都会实时更新到 VS Code 的 UI 上。
 
 ### 点击时终端运行
 
@@ -75,7 +107,7 @@
 
 | 命令                                | 描述                                                   |
 | ----------------------------------- | ------------------------------------------------------ |
-| `C Runner: 下载并配置 C/C++ 编译器` | 自动下载并设置扩展所需的MinGW-w64编译器。              |
+| `C Runner: 下载并配置 C/C++ 编译器` | 自动下载并设置扩展所需的 MinGW-w64 编译器。            |
 | `C Runner: 显示编译器安装路径`      | 显示编译器被安装到的扩展私有目录的绝对路径，方便调试。 |
 
 ## 📝 许可证 (License)
