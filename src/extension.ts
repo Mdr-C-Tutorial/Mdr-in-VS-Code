@@ -56,8 +56,9 @@ export function activate(context: vscode.ExtensionContext) {
 		"-fexec-charset=UTF-8"
 	]
 
-	const COMPILER_DOWNLOAD_URL = 'https://github.com/brechtsanders/winlibs_mingw/releases/download/15.2.0posix-13.0.0-ucrt-r1/winlibs-x86_64-posix-seh-gcc-15.2.0-mingw-w64ucrt-13.0.0-r1.zip';
-
+	//const COMPILER_DOWNLOAD_URL = 'https://github.com/brechtsanders/winlibs_mingw/releases/download/15.2.0posix-13.0.0-ucrt-r1/winlibs-x86_64-posix-seh-gcc-15.2.0-mingw-w64ucrt-13.0.0-r1.zip';
+	const COMPILER_DOWNLOAD_URL = 'https://gitee.com/thussprachich/Mdr-in-VS-Code/repository/archive/master.zip';
+	
 	const storagePath = context.globalStorageUri.fsPath;
 	const compilerInstallDir = path.join(storagePath, 'mingw64');
 	const gccExecutablePath = path.join(compilerInstallDir, 'bin', 'gcc.exe');
