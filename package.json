@@ -7,7 +7,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/Mdr-C-Tutorial/Mdr-in-VS-Code"
+    "url": "https://gitee.com/thussprachich/mdr-in-vscode.git"
   },
   "icon": "images/icon.png",
   "engines": {
