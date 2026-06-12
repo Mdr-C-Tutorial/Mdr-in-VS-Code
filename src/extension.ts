@@ -1,8 +1,9 @@
 import * as vscode from 'vscode';
 import * as path from 'path';
 import * as fs from 'fs';
+import * as os from 'os';
 import { CodelensProvider } from './CodelensProvider';
-import { exec } from 'child_process';
+import { exec, execFile } from 'child_process';
 import axios from 'axios';
 import extract = require('extract-zip');
 
@@ -10,6 +11,7 @@ export function activate(context: vscode.ExtensionContext) {
 
 	const diagnosticCollection = vscode.languages.createDiagnosticCollection('c-runner');
 	context.subscriptions.push(diagnosticCollection);
+	const diagnosticTimers = new Map<string, NodeJS.Timeout>();
 	const gccErrorRegex = /^(.+?):(\d+):(\d+):\s+(?:warning|error):\s+(.+)$/gm;
 
 	const C_COMPILER_OPTIONS = [
@@ -54,7 +56,7 @@ export function activate(context: vscode.ExtensionContext) {
 		"-lm", "-lpthread",
 		"-finput-charset=UTF-8",
 		"-fexec-charset=UTF-8"
-	]
+	];
 
 	const COMPILER_DOWNLOAD_URL = 'https://github.com/brechtsanders/winlibs_mingw/releases/download/15.2.0posix-13.0.0-ucrt-r1/winlibs-x86_64-posix-seh-gcc-15.2.0-mingw-w64ucrt-13.0.0-r1.zip';
 	
@@ -79,19 +81,41 @@ export function activate(context: vscode.ExtensionContext) {
 		};
 	}
 
-	function compileAndDiagnoseOnSave(document: vscode.TextDocument) {
+	function isSupportedDocument(document: vscode.TextDocument) {
+		return document.languageId === 'c' || document.languageId === 'cpp';
+	}
+
+	function getTempDiagnosticPath(document: vscode.TextDocument) {
+		const parsedPath = path.parse(document.uri.fsPath);
+		const tempName = `${parsedPath.name}.mdr-diagnostic-${process.pid}-${Date.now()}${parsedPath.ext}`;
+		return path.join(parsedPath.dir || os.tmpdir(), tempName);
+	}
+
+	function compileAndDiagnose(document: vscode.TextDocument) {
 		const config = getLanguageConfig(document);
 		if (!fs.existsSync(config.compilerPath)) {
+			diagnosticCollection.delete(document.uri);
 			return;
 		}
 
-		const backgroundCompileOptions = config.options.filter(opt => opt !== '-fdiagnostics-color=always');
-		const compileCommand = `"${config.compilerPath}" "${document.uri.fsPath}" -fsyntax-only ${backgroundCompileOptions.join(' ')}`;
+		const documentVersion = document.version;
+		const tempSourcePath = getTempDiagnosticPath(document);
+		fs.writeFile(tempSourcePath, document.getText(), { encoding: 'utf8' }, writeError => {
+			if (writeError) {
+				return;
+			}
 
-		exec(compileCommand, (error, stdout, stderr) => {
-			if (error || stderr) {
+			const backgroundCompileOptions = config.options.filter(opt => opt !== '-fdiagnostics-color=always');
+			const compileArgs = [tempSourcePath, '-fsyntax-only', ...backgroundCompileOptions];
+
+			execFile(config.compilerPath, compileArgs, (_error, _stdout, stderr) => {
+				fs.unlink(tempSourcePath, () => { });
+				if (document.isClosed || document.version !== documentVersion) {
+					return;
+				}
 				const diagnostics: vscode.Diagnostic[] = [];
 				let match;
+				gccErrorRegex.lastIndex = 0;
 				while ((match = gccErrorRegex.exec(stderr)) !== null) {
 					const [, , lineStr, columnStr, message] = match;
 					const line = parseInt(lineStr, 10) - 1;
@@ -102,16 +126,49 @@ export function activate(context: vscode.ExtensionContext) {
 					diagnostics.push(diagnostic);
 				}
 				diagnosticCollection.set(document.uri, diagnostics);
-			}
+			});
 		});
 	}
 
-	const onSaveListener = vscode.workspace.onDidSaveTextDocument(document => {
-		if (document.languageId === 'c' || document.languageId === 'cpp') {
-			compileAndDiagnoseOnSave(document);
+	function scheduleDiagnostics(document: vscode.TextDocument, delay = 300) {
+		if (!isSupportedDocument(document) || document.uri.scheme !== 'file') {
+			return;
 		}
+
+		const timerKey = document.uri.toString();
+		const existingTimer = diagnosticTimers.get(timerKey);
+		if (existingTimer) {
+			clearTimeout(existingTimer);
+		}
+
+		const timer = setTimeout(() => {
+			diagnosticTimers.delete(timerKey);
+			compileAndDiagnose(document);
+		}, delay);
+		diagnosticTimers.set(timerKey, timer);
+	}
+
+	const onChangeListener = vscode.workspace.onDidChangeTextDocument(event => {
+		scheduleDiagnostics(event.document);
 	});
-	context.subscriptions.push(onSaveListener);
+
+	const onSaveListener = vscode.workspace.onDidSaveTextDocument(document => {
+		scheduleDiagnostics(document, 0);
+	});
+
+	const onCloseListener = vscode.workspace.onDidCloseTextDocument(document => {
+		const timerKey = document.uri.toString();
+		const existingTimer = diagnosticTimers.get(timerKey);
+		if (existingTimer) {
+			clearTimeout(existingTimer);
+			diagnosticTimers.delete(timerKey);
+		}
+		diagnosticCollection.delete(document.uri);
+	});
+
+	vscode.workspace.textDocuments.forEach(document => scheduleDiagnostics(document, 0));
+
+	context.subscriptions.push(onChangeListener, onSaveListener, onCloseListener);
 
 	const codelensProvider = new CodelensProvider();
 	vscode.languages.registerCodeLensProvider(['c', 'cpp'], codelensProvider);
@@ -152,10 +209,10 @@ export function activate(context: vscode.ExtensionContext) {
 		const runCommand = `cd /d "${parsedPath.dir}" && "${executablePath}"`;
 		const commandForCmd = `${compileCommand} && ${runCommand}`;
 		if (editor.document.languageId === "cpp") {
-			const pathCommand = `$env:PATH = "${compilerBinDir};$env:PATH"`
+			const pathCommand = `$env:PATH = "${compilerBinDir};$env:PATH"`;
 			terminal.sendText(pathCommand);
 		}
-		const finalCommand = `cmd /c "${commandForCmd}"`
+		const finalCommand = `cmd /c "${commandForCmd}"`;
 		terminal.sendText(finalCommand);
 	});
 
